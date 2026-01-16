@@ -3,9 +3,12 @@ import os
 from dotenv import load_dotenv
 import json
 
-# Load environment
-load_dotenv()
+# Load environment from parent Evals directory (override=True to override shell env vars)
+load_dotenv('/Users/allenlu/Desktop/AIxAnimals/Evals/.env', override=True)
 client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+eval_model = os.getenv('INSPECT_EVAL_MODEL', 'anthropic/claude-sonnet-4-20250514')
+# Extract just the model ID (remove 'anthropic/' prefix if present)
+model_id = eval_model.split('/')[-1].strip()
 
 # Load your samples
 with open('manta_samples.json', 'r') as f:
@@ -68,7 +71,7 @@ Return format (JSON array only):
 
     # Generate follow-ups
     response = client.messages.create(
-        model="claude-3-5-sonnet-20241022",
+        model=model_id,
         max_tokens=2000,
         system=system_prompt,
         messages=[
@@ -86,7 +89,14 @@ Return format (JSON array only):
             response_text = response_text[4:]
         response_text = response_text.strip()
 
-    followups = json.loads(response_text)
+    try:
+        followups = json.loads(response_text)
+    except json.JSONDecodeError as e:
+        print(f"\n!!! JSON Parse Error !!!")
+        print(f"Error: {e}")
+        print(f"Response text (first 500 chars):\n{response_text[:500]}")
+        print(f"\nFull response:\n{response_text}")
+        raise
 
     return followups
 
